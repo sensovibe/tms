@@ -1,0 +1,272 @@
+{
+  "_comment": "SANITRAC TMS-V1.2 gas sensor calibration reference. See docs/gas-sensors-research.md.",
+  "_units": {
+    "resistance": "ohm",
+    "voltage": "V",
+    "power": "mW",
+    "concentration": "ppm",
+    "time": "s"
+  },
+  "_formulas": {
+    "sensor_resistance": "Rs = (Vc / V_RL - 1) * RL",
+    "sensing_body_power": "Ps = Vc^2 * Rs / (Rs + RL)^2",
+    "ratio": "ratio = Rs_corrected / R0",
+    "ppm_power_law": "ppm = a * ratio^b",
+    "temp_humidity_correction": "cFactor = 0.00035*t^2 - 0.02718*t + 1.39538 - (h - 33)*0.0018 ; Rs_corrected = Rs / cFactor",
+    "odour_deviation": "dev = max(0, -log10(Rs_corrected / R_baseline))"
+  },
+  "_correction_factor_constants": {
+    "CORA": 0.00035,
+    "CORB": 0.02718,
+    "CORC": 1.39538,
+    "CORD": 0.0018,
+    "reference_temp_c": 20,
+    "reference_rh_pct": 33,
+    "source": "MQ-135 derived fit; approximate for MQ-2/4/9/137 - refit from fleet data",
+    "confidence": "low"
+  },
+
+  "sensors": {
+    "MQ137": {
+      "role": "primary",
+      "target_gas": "NH3",
+      "purpose": "Ammonia from urea hydrolysis - the dominant toilet odorant. Primary cleanliness channel.",
+      "datasheet": {
+        "detection_range_ppm": [5, 500],
+        "loop_voltage_max_v": 24,
+        "heater_voltage_v": 5.0,
+        "heater_voltage_tol_v": 0.2,
+        "heater_resistance_ohm": 31,
+        "heater_resistance_tol_ohm": 3,
+        "heater_power_max_mw": 900,
+        "heater_current_max_ma": 180,
+        "load_resistance_ohm": "adjustable",
+        "rs_range_ohm": [2000, 15000],
+        "rs_range_condition": "50 ppm NH3",
+        "slope_alpha_max": 0.6,
+        "slope_alpha_condition": "R(100ppm)/R(50ppm) NH3",
+        "implied_min_abs_log_slope": 0.737,
+        "preheat_hours": 48,
+        "standard_conditions": { "temp_c": 20, "temp_tol_c": 2, "rh_pct": 65, "rh_tol_pct": 5 },
+        "r0_reference_gas": "50 ppm ethanol",
+        "notes": [
+          "Datasheet sensitivity line reads 'Rs(air)/Rs(5000ppm CH4)>=5' - copy-paste error from MQ-2.",
+          "Smoke: 10 cigarettes in 8 m^3 room produces output equal to 10 ppm NH3. Smoking WILL look like ammonia."
+        ]
+      },
+      "curve": {
+        "clean_air_ratio": null,
+        "gases": {
+          "NH3": { "a": null, "b": null }
+        },
+        "confidence": "unusable",
+        "warning": "Published library fits use log-log slope ~-0.264, but the datasheet alpha<=0.6 spec requires |slope|>=0.737 - off by ~3x. Sources also disagree on intercept (+0.42 vs -0.241, giving 39 ppm vs 0.12 ppm for the same input). Do NOT ship ppm from these. Use the odour index, or calibrate against a reference instrument."
+      },
+      "thresholds_ppm": {
+        "clean": [0, 1],
+        "normal": [1, 5],
+        "noticeable": [5, 15],
+        "foul": [15, 25],
+        "occupational_limit": 25,
+        "short_term_limit": 35
+      },
+      "threshold_basis": "NIOSH REL TWA 25 ppm, STEL 35 ppm; measured restroom NH3 3.16-6.88 ppm; reported urine odour 10-40 ppm",
+      "odour_index_weight": 0.7
+    },
+
+    "MQ2": {
+      "role": "event",
+      "target_gas": "combustible gas and smoke",
+      "purpose": "Aerosol propellant, cleaning chemicals, tobacco smoke, LPG. Event and cleaning-verification channel.",
+      "datasheet": {
+        "detection_range_ppm": [300, 10000],
+        "detection_range_gas": "combustible gas",
+        "loop_voltage_max_v": 24,
+        "heater_voltage_v": 5.0,
+        "heater_voltage_tol_v": 0.2,
+        "heater_resistance_ohm": 31,
+        "heater_resistance_tol_ohm": 3,
+        "heater_power_max_mw": 900,
+        "heater_current_max_ma": 180,
+        "load_resistance_ohm": "adjustable",
+        "rs_range_ohm": [2000, 20000],
+        "rs_range_condition": "2000 ppm C3H8",
+        "sensitivity_s": "Rs(air)/Rs(1000ppm isobutane) >= 5",
+        "slope_alpha_max": 0.6,
+        "slope_alpha_condition": "R(5000ppm)/R(3000ppm) CH4",
+        "preheat_hours": 48,
+        "standard_conditions": { "temp_c": 20, "temp_tol_c": 2, "rh_pct": 65, "rh_tol_pct": 5 },
+        "r0_reference_gas": "1000 ppm hydrogen",
+        "temp_humidity_ratio_span": [0.5, 1.9]
+      },
+      "curve": {
+        "clean_air_ratio": 9.83,
+        "gases": {
+          "LPG":     { "a": 574.25,  "b": -2.222 },
+          "propane": { "a": 658.71,  "b": -2.168 },
+          "H2":      { "a": 987.99,  "b": -2.162 },
+          "alcohol": { "a": 3616.1,  "b": -2.675 },
+          "CO":      { "a": 36974,   "b": -3.109 }
+        },
+        "confidence": "medium",
+        "warning": "Derived from library fits of the datasheet curve image, not from the datasheet text. Do not treat MQ-2 CO as a real CO measurement - use MQ-9 for that."
+      },
+      "thresholds_ppm_lpg_equivalent": {
+        "investigate": 1000,
+        "safety_alarm": 5000
+      },
+      "threshold_basis": "propane LEL 2.1% = 21000 ppm; 5000 ppm is roughly 10-25% LEL depending on gas",
+      "odour_index_weight": 0.1
+    },
+
+    "MQ4": {
+      "role": "safety_and_corroboration",
+      "target_gas": "CH4",
+      "purpose": "Sewer gas ingress, dry trap, septic backflow. Also corroborates faecal odour.",
+      "datasheet": {
+        "detection_range_ppm": [200, 10000],
+        "detection_range_gas": "CH4 / natural gas",
+        "circuit_voltage_v": 5.0,
+        "heater_voltage_v": 5.0,
+        "heater_voltage_tol_v": 0.1,
+        "heater_resistance_ohm": 33,
+        "heater_resistance_tol_pct": 5,
+        "heater_power_max_mw": 750,
+        "heater_current_max_ma": 150,
+        "load_resistance_ohm": 20000,
+        "load_resistance_range_ohm": [10000, 47000],
+        "rs_range_ohm": [10000, 60000],
+        "rs_range_condition": "1000 ppm CH4",
+        "slope_alpha_max": 0.6,
+        "slope_alpha_condition": "1000ppm/5000ppm CH4",
+        "preheat_hours": 24,
+        "operating_temp_c": [-10, 50],
+        "storage_temp_c": [-20, 70],
+        "max_rh_pct": 95,
+        "min_o2_pct": 2,
+        "r0_reference_gas": "1000 ppm CH4 in clean air",
+        "datasheet_calibration_advice": "calibrate at 5000 ppm CH4 with RL ~20k",
+        "notes": ["Small sensitivity to alcohol and smoke - cleaner CH4 channel than MQ-2."]
+      },
+      "curve": {
+        "clean_air_ratio": 4.4,
+        "gases": {
+          "CH4":   { "a": 1012.7,  "b": -2.786 },
+          "LPG":   { "a": 3811.9,  "b": -3.113 },
+          "smoke": { "a": 30000000, "b": -8.308 }
+        },
+        "confidence": "medium"
+      },
+      "thresholds_ppm": {
+        "elevated": 200,
+        "warning": 1000,
+        "alarm": 5000,
+        "evacuate": 10000
+      },
+      "threshold_basis": "CH4 LEL = 5% = 50000 ppm. 5000 ppm = 10% LEL (standard industrial alarm), 10000 ppm = 20% LEL.",
+      "odour_index_weight": 0.2
+    },
+
+    "MQ9": {
+      "role": "safety",
+      "target_gas": "CO (low-temperature phase), CH4/LPG (high-temperature phase)",
+      "purpose": "Carbon monoxide from nearby generators/geysers/vehicle exhaust. Excluded from the odour index.",
+      "datasheet": {
+        "detection_range_ppm": { "CO": [20, 2000], "CH4": [500, 10000], "LPG": [500, 10000] },
+        "circuit_voltage_v": 5.0,
+        "heater_voltage_high_v": 5.0,
+        "heater_voltage_low_v": 1.4,
+        "heater_time_high_s": 60,
+        "heater_time_low_s": 90,
+        "heater_resistance_ohm": 33,
+        "heater_resistance_tol_pct": 5,
+        "heater_power_max_mw": 340,
+        "heater_current_max_ma": 68,
+        "load_resistance_ohm": 10000,
+        "load_resistance_note": "adjustable; 10k used for the datasheet curve",
+        "rs_range_ohm": [2000, 20000],
+        "rs_range_condition": "100 ppm CO",
+        "slope_alpha_max": 0.5,
+        "slope_alpha_condition": "Rs(300ppm)/Rs(100ppm)",
+        "preheat_hours": 48,
+        "operating_temp_c": [-20, 50],
+        "max_rh_pct": 95,
+        "min_o2_pct": 2,
+        "r0_reference_gas": "1000 ppm LPG in clean air",
+        "standard_conditions": { "temp_c": 20, "temp_tol_c": 2, "rh_pct": 65, "rh_tol_pct": 5 }
+      },
+      "heater_cycle_required": true,
+      "heater_cycle_warning": "CO is only valid during the 1.4 V low-temperature phase. If the TMS-V1.2 heater is hard-tied to 5 V, MQ-9 CO readings are NOT carbon monoxide - publish nothing, or label it as a second combustible-gas channel. HARDWARE CONFIRMATION REQUIRED.",
+      "sampling": {
+        "co_sample_window": "last ~10 s of the 90 s low phase",
+        "combustible_sample_window": "last ~10 s of the 60 s high phase",
+        "full_cycle_s": 150
+      },
+      "curve": {
+        "clean_air_ratio": 9.6,
+        "gases": {
+          "CO":  { "a": 599.65,  "b": -2.244 },
+          "LPG": { "a": 1000.5,  "b": -2.186 },
+          "CH4": { "a": 4269.6,  "b": -2.648 }
+        },
+        "confidence": "medium"
+      },
+      "thresholds_ppm_co": {
+        "normal": 9,
+        "elevated": 35,
+        "alarm": 50,
+        "danger": 200,
+        "idlh": 1200
+      },
+      "threshold_basis": "EPA 8h IAQ 9 ppm; NIOSH REL TWA 35 ppm, ceiling 200 ppm, IDLH 1200 ppm; OSHA PEL 50 ppm",
+      "ul2034_time_weighted": {
+        "no_alarm_below_ppm_for_30_days": 30,
+        "alarm_70ppm_within_h": [1, 4],
+        "alarm_150ppm_within_min": [10, 50],
+        "alarm_400ppm_within_min": [4, 15]
+      },
+      "odour_index_weight": 0.0
+    }
+  },
+
+  "odour_index": {
+    "formula": "OI = clamp(0.70*I_MQ137 + 0.20*I_MQ4 + 0.10*I_MQ2, 0, 100)",
+    "per_sensor_index": "I = clamp(100 * dev / dev_full, 0, 100)",
+    "baseline_source": "rolling 7-day low percentile of Rs_corrected, re-anchored on RFID-verified cleaning events",
+    "states": {
+      "clean":      [0, 25],
+      "acceptable": [25, 50],
+      "attention":  [50, 70],
+      "dirty":      [70, 85],
+      "foul":       [85, 100]
+    },
+    "overrides": [
+      "MQ-4 > 10% LEL (5000 ppm) or MQ-2 sustained high -> independent safety alarm path, no averaging delay",
+      "any sensor open/short/out-of-range -> FAULT state, never 'clean'",
+      "RFID cleaner scan -> odour alarm hold-off window"
+    ]
+  },
+
+  "power_budget_5v": {
+    "mq2_ma": 180,
+    "mq137_ma": 180,
+    "mq4_ma": 150,
+    "mq9_ma": 68,
+    "heaters_total_ma": 578,
+    "heaters_total_mw": 2890,
+    "esp32s3_wifi_avg_ma": 150,
+    "esp32s3_wifi_peak_ma": 500,
+    "estimated_continuous_ma": 800,
+    "estimated_peak_ma": 1200,
+    "warning": "HLK-PM01 is 3 W / 600 mA and would be undersized. Recommend HLK-10M05 (10 W) or 12 W class plus bulk capacitance. A sagging 5 V rail changes Vc and corrupts every gas reading. CONFIRM PART NUMBER."
+  },
+
+  "unknowns_blocking_firmware": [
+    "ADC divider resistor values per channel (needed to recover V_RL from V_adc)",
+    "RL value fitted per sensor on the shield",
+    "ESP32-S3 GPIO assignment per gas channel (ADC1 = GPIO1-10 only; ADC2 unusable with WiFi)",
+    "MQ-9 heater switchable or hard-tied 5 V",
+    "Temperature/humidity sensor part number",
+    "Hylink PSU part number"
+  ]
+}
